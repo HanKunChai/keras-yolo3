@@ -17,6 +17,10 @@ from yolo3.model import yolo_eval, yolo_body, tiny_yolo_body
 from yolo3.utils import letterbox_image
 import os
 from keras.utils import multi_gpu_model
+import tensorflow as tf
+
+config = tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))
+sess = tf.Session(config=config)
 
 class YOLO(object):
     _defaults = {
@@ -168,6 +172,54 @@ class YOLO(object):
 
     def close_session(self):
         self.sess.close()
+def detect_cam(yolo):
+    import cv2
+    cam = cv2.VideoCapture(0)
+    if not cam.isOpened():
+        raise IOError("Couldn't open webcam")
+    video_FourCC = int(cam.get(cv2.CAP_PROP_FOURCC))
+    video_fps = cam.get(cv2.CAP_PROP_FPS)
+    video_size = (int(cam.get(cv2.CAP_PROP_FRAME_WIDTH)),
+                  int(cam.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    accum_time = 0
+    curr_fps = 0
+    fps = "FPS: ??"
+    prev_time = timer()
+    while True:
+        return_value, frame = cam.read()
+        image = Image.fromarray(frame)
+        image = yolo.detect_image(image)
+        result = np.asarray(image)
+        curr_time = timer()
+        exec_time = curr_time - prev_time
+        prev_time = curr_time
+        accum_time = accum_time + exec_time
+        curr_fps = curr_fps + 1
+        if accum_time > 1:
+            accum_time = accum_time - 1
+            fps = "FPS: " + str(curr_fps)
+            curr_fps = 0
+        cv2.putText(result, text=fps, org=(3, 15), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                    fontScale=0.50, color=(255, 0, 0), thickness=2)
+        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+        cv2.imshow("result", result)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    yolo.close_session()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def detect_video(yolo, video_path, output_path=""):
     import cv2
